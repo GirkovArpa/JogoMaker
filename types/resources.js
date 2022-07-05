@@ -1,4 +1,4 @@
-import { EventList } from './events.js';
+import { TriggerList } from './triggers.js';
 import { Velocity, Position, Size, BoundingBox } from './math.js';
 
 export class Resource {
@@ -9,7 +9,7 @@ export class Resource {
   async hydrate(resourceList = null) {
     if (this instanceof Layer) {
       const wallpapers = resourceList;
-      this.wallpaper = wallpapers.find(({ name }) => name === this.wallpaper);
+      this.background = wallpapers.find(({ name }) => name === this.background);
     } else if (this instanceof Sound) {
       this.audio = await Audio.load(`resources/sounds/${this.filename}`);
     } else if (this instanceof Sprite) {
@@ -19,7 +19,7 @@ export class Resource {
     } else if (this instanceof Entity) {
       const sprites = resourceList;
       this.sprite = sprites.find(({ name }) => name === this.sprite);
-    } else if (this instanceof Instance) {
+    } else if (this instanceof Unit) {
       const entities = resourceList;
       this.entity = entities.find(({ name }) => name === this.entity);
       this.sprite = this.entity.sprite || null;
@@ -34,12 +34,12 @@ export class ResourceList extends Array {
     if (resource instanceof Resource) {
       super.push(resource);
     } else {
-      throw new Error(`Not instance of Resource: ${JSON.stringify(resource)}`);
+      throw new Error(`Not unit of Resource: ${JSON.stringify(resource)}`);
     }
   }
 }
 
-export class Wallpaper extends Resource {
+export class Background extends Resource {
   constructor(name, filename, size = new Size()) {
     super(name);
     this.filename = filename;
@@ -51,14 +51,12 @@ export class Wallpaper extends Resource {
   }
 }
 
-export class WallpaperList extends ResourceList {
-  push(wallpaper) {
-    if (wallpaper instanceof Wallpaper) {
-      super.push(wallpaper);
+export class BackgroundList extends ResourceList {
+  push(background) {
+    if (background instanceof Background) {
+      super.push(background);
     } else {
-      throw new Error(
-        `Not instance of Wallpaper: ${JSON.stringify(wallpaper)}`
-      );
+      throw new Error(`Not unit of Background: ${JSON.stringify(background)}`);
     }
   }
 }
@@ -69,13 +67,13 @@ export class Entity extends Resource {
     sprite,
     visible = true,
     solid = false,
-    events = new EventList()
+    triggers = new TriggerList()
   ) {
     super(name);
     this.sprite = sprite;
     this.visible = visible;
     this.solid = solid;
-    this.events = events;
+    this.triggers = triggers;
   }
 
   async hydrate(sprites) {
@@ -88,7 +86,7 @@ export class EntityList extends ResourceList {
     if (entity instanceof Entity) {
       super.push(entity);
     } else {
-      throw new Error(`Not instance of Entity: ${JSON.stringify(entity)}`);
+      throw new Error(`Not unit of Entity: ${JSON.stringify(entity)}`);
     }
   }
 }
@@ -110,7 +108,7 @@ export class SpriteList extends ResourceList {
     if (sprite instanceof Sprite) {
       super.push(sprite);
     } else {
-      throw new Error(`Not instance of Sprite: ${JSON.stringify(sprite)}`);
+      throw new Error(`Not unit of Sprite: ${JSON.stringify(sprite)}`);
     }
   }
 }
@@ -131,7 +129,7 @@ export class SoundList extends ResourceList {
     if (sound instanceof Sound) {
       super.push(sound);
     } else {
-      throw new Error(`Not instance of Sound: ${JSON.stringify(sound)}`);
+      throw new Error(`Not unit of Sound: ${JSON.stringify(sound)}`);
     }
   }
 }
@@ -143,14 +141,14 @@ export class Zone extends Resource {
     size = new Size(),
     fps = 30,
     layers = new LayerList(),
-    instances = new InstanceList()
+    units = new UnitList()
   ) {
     super(name);
     this.caption = caption;
     this.size = size;
     this.fps = fps;
     this.layers = layers;
-    this.instances = instances;
+    this.units = units;
   }
 }
 
@@ -159,7 +157,7 @@ export class ZoneList extends ResourceList {
     if (zone instanceof Zone) {
       super.push(zone);
     } else {
-      throw new Error(`Not instance of Zone: ${JSON.stringify(zone)}`);
+      throw new Error(`Not unit of Zone: ${JSON.stringify(zone)}`);
     }
   }
 }
@@ -168,7 +166,7 @@ export class Layer extends Resource {
   #velocity;
 
   constructor(
-    wallpaper = null,
+    background = null,
     color = 'white',
     repeat = { x: false, y: false },
     stretch = false,
@@ -176,7 +174,7 @@ export class Layer extends Resource {
     speedY = 0
   ) {
     super('');
-    this.wallpaper = wallpaper;
+    this.background = background;
     this.color = color;
     this.repeat = repeat;
     this.stretch = stretch;
@@ -196,17 +194,18 @@ export class LayerList extends ResourceList {
     if (layer instanceof Layer) {
       super.push(layer);
     } else {
-      throw new Error(`Not instance of Layer: ${JSON.stringify(layer)}`);
+      throw new Error(`Not unit of Layer: ${JSON.stringify(layer)}`);
     }
   }
 }
 
-export class Instance extends Resource {
+export class Unit extends Resource {
   #position;
   #velocity;
   #alarms;
 
   #image;
+  #audios;
 
   constructor(entity, position = new Position()) {
     super('');
@@ -225,8 +224,20 @@ export class Instance extends Resource {
 
     this.#velocity = new Velocity();
     this.#alarms = new AlarmList();
+    this.#audios = [];
 
     this.created = false;
+  }
+
+  destroy(res) {
+    this.#audios.forEach((audio) => audio.stop());
+    res.units.splice(res.units.indexOf(this), 1);
+  }
+
+  async playAudio(audio) {
+    this.#audios.push(audio);
+    await audio.play();
+    this.#audios.splice(this.#audios.indexOf(audio), 1);
   }
 
   async hydrate(entities) {
@@ -258,6 +269,11 @@ export class Instance extends Resource {
         ...this.position,
       });
     }
+  }
+
+  tick() {
+    this.#alarms.forEach((alarm) => alarm.tick());
+    this.step();
   }
 
   step() {
@@ -343,11 +359,15 @@ export class Alarm {
   constructor(id, ticks = 0) {
     this.#id = id;
     this.#ticks = ticks;
+    this.firing = false;
   }
 
   tick() {
     if (this.#ticks !== -1) {
       this.#ticks--;
+      if (this.#ticks === -1) {
+        this.firing = true;
+      }
     }
   }
 
@@ -358,29 +378,36 @@ export class Alarm {
   get id() {
     return this.#id;
   }
+
+  get ticks() {
+    return this.#ticks;
+  }
 }
 
 export class AlarmList extends Array {
   constructor(length = 12) {
     super(length);
-    this.fill((_, id) => new Alarm(id));
+
+    for (let id = 0; id < length; id++) {
+      this[id] = new Alarm(id);
+    }
   }
 
   push(alarm) {
     if (alarm instanceof Alarm) {
       super.push(alarm);
     } else {
-      throw new Error(`Not instance of Alarm: ${JSON.stringify(alarm)}`);
+      throw new Error(`Not unit of Alarm: ${JSON.stringify(alarm)}`);
     }
   }
 }
 
-export class InstanceList extends ResourceList {
-  push(instance) {
-    if (instance instanceof Instance) {
-      super.push(instance);
+export class UnitList extends ResourceList {
+  push(unit) {
+    if (unit instanceof Unit) {
+      super.push(unit);
     } else {
-      throw new Error(`Not instance of Instance: ${JSON.stringify(instance)}`);
+      throw new Error(`Not unit of Unit: ${JSON.stringify(unit)}`);
     }
   }
 }
@@ -394,8 +421,8 @@ export default {
   SoundList,
   Sprite,
   SpriteList,
-  Wallpaper,
-  WallpaperList,
+  Background,
+  BackgroundList,
   Zone,
   ZoneList,
   Layer,

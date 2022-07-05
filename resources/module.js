@@ -5,16 +5,16 @@ export {
   SoundList,
   Sprite,
   SpriteList,
-  Wallpaper,
-  WallpaperList,
+  Background,
+  BackgroundList,
   Zone,
   ZoneList,
   Layer,
   LayerList,
-  Instance,
-  InstanceList,
+  Unit,
+  UnitList,
 } from '../types/resources.js';
-export { default as Event, EventList } from '../types/events.js';
+export { default as Trigger, TriggerList } from '../types/triggers.js';
 export { default as Action, ActionList } from '../types/actions.js';
 export { Size, Position } from '../types/math.js';
 

@@ -9,21 +9,27 @@ import {
   SoundList,
   Sprite,
   SpriteList,
-  Wallpaper,
-  WallpaperList,
+  Background,
+  BackgroundList,
   Zone,
   ZoneList,
   Layer,
   LayerList,
 } from './types/resources.js';
-import Events from './types/events.js';
+import Triggers from './types/triggers.js';
 import { Position, Size, Velocity, BoundingBox } from './types/math.js';
 import RESOURCES from './resources/module.js';
 
 main();
 
 async function main() {
-  Window.this.modal({ url: 'about.html' });
+  if (!Window.this.scapp.argv.includes('--debug')) {
+    Window.this.modal({ url: 'about.html' });
+  }
+
+  RESOURCES.globals = {
+    SCORE: 0,
+  };
 
   const [{ caption, size }] = RESOURCES.zones;
   adjustWindow(caption, size);
@@ -42,6 +48,7 @@ function adjustWindow(caption = '', size = new Size()) {
 
 async function hydrateResources(res) {
   console.log('Hydrating resources ...');
+  const date = Date.now();
   await Promise.all([
     ...res.sounds.map((snd) => snd.hydrate()),
     ...res.zones
@@ -51,61 +58,174 @@ async function hydrateResources(res) {
     ...res.sprites.map((spr) => spr.hydrate()),
     ...res.entities.map((ent) => ent.hydrate(res.sprites)),
   ]);
-  console.log('Hydration complete!');
+  console.log(`Hydration complete! (${(Date.now() - date) / 1000} seconds)`);
 }
 
 async function play(res) {
   const zone = res.zones[0];
   await loadZone(zone, res);
 
+  const INPUT_STATE = {
+    KEYBOARD: {},
+    MOUSE: {
+      [Triggers.Mouse.LEFT]: {
+        position: new Position(),
+        clicked: false,
+        held: false,
+        released: false,
+      },
+    },
+  };
+
+  document.on('mousedown', 'body', (evt) => {
+    const state = INPUT_STATE.MOUSE[evt.button] || {
+      position: new Position(),
+      clicked: false,
+      held: false,
+      released: false,
+    };
+    state.position = new Position(evt.x, evt.y);
+    state.clicked = true;
+    state.held = true;
+  });
+
+  document.on('mouseup', 'body', (evt) => {
+    const state = INPUT_STATE.MOUSE[evt.button] || {
+      position: new Position(),
+      clicked: false,
+      held: false,
+      released: false,
+    };
+    state.position = new Position(evt.x, evt.y);
+    state.held = false;
+  });
+
   const tick = function () {
     //  ... update game state ...
     // ... compute location of objects ...
+    for (const unit of res.units) {
+      if (res.globals.SLEEPING) break;
 
-    res.instances.forEach((inst) => {
-      const { events } = inst.entity;
+      const { triggers } = unit.entity;
 
-      events.forEach((evt) => {
-        switch (evt.name) {
+      for (const trigger of triggers) {
+        switch (trigger.name) {
           case 'create': {
-            evt.call(inst);
+            const misc = { res };
+            trigger.call(unit, misc);
             break;
           }
           case 'collision': {
-            const entity = res.entities.find(({ name }) => name === evt.other);
-            const others = res.instances
+            const entity = res.entities.find(
+              ({ name }) => name === trigger.other
+            );
+            const others = res.units
               .filter((other) => other.entity === entity)
-              .filter((other) => other !== inst)
-              .filter((other) => inst.willCollide(other));
+              .filter((other) => other !== unit)
+              .filter((other) => unit.willCollide(other));
 
             others.forEach((other) => {
-              evt.call(inst, other);
+              const misc = { res, other };
+              trigger.call(unit, misc);
             });
 
+            break;
+          }
+          case 'alarm': {
+            const alarm = unit.getAlarm(trigger.alarm);
+            if (alarm.firing) {
+              const misc = { res };
+              trigger.call(unit, misc);
+
+              alarm.firing = false;
+            }
+            break;
+          }
+          case 'mouse click': {
+            const state = INPUT_STATE.MOUSE[trigger.button];
+            if (state.clicked) {
+              const box = new BoundingBox(unit.position, unit.sprite.size);
+              if (state.position.isInside(box)) {
+                const misc = { res };
+                trigger.call(unit, misc);
+              }
+            }
             break;
           }
           default: {
             break;
           }
         }
-      });
+      }
 
-      inst.step();
-    });
+      // update position
+      // decrement alarms
+      unit.tick();
+    }
 
-    // request this.paintContent() call
+    // reset input states
+    Object.values(INPUT_STATE.MOUSE).forEach(
+      (state) => (state.clicked = false)
+    );
+
     this.requestPaint();
     // request this.animate() call on next VSYNC
-    return true;
+    if (res.globals.GAME_LOOP_RUNNING) {
+      return true;
+    } else {
+      res.globals.LOOP_STOPPED = true;
+      return false;
+    }
   };
+
+  res.globals.STOP_LOOP = async function () {
+    res.globals.GAME_LOOP_RUNNING = false;
+    res.globals.LOOP_STOPPED = false;
+    await new Promise((resolve) => {
+      const interval = setInterval(() => {
+        if (res.globals.LOOP_STOPPED) {
+          clearInterval(interval);
+          resolve();
+        }
+      });
+    });
+  };
+
+  res.globals.RESUME_LOOP = function (FPS) {
+    res.globals.GAME_LOOP_RUNNING = true;
+    res.globals.LOOP_STOPPED = false;
+    document.$('#zone').animate(tick, { FPS });
+  };
+
+  res.globals.RESTART = async function () {
+    await res.globals.STOP_LOOP();
+    res.globals.SCORE = 0;
+    await loadZone(zone, res);
+    res.globals.RESUME_LOOP(zone.fps);
+    console.log(JSON.stringify(res.globals));
+  };
+
+  res.globals.SLEEP = async function (milliseconds) {
+    res.globals.SLEEPING = true;
+    const date = Date.now();
+    while (true) {
+      if (Date.now() - date >= milliseconds) {
+        res.globals.SLEEPING = false;
+        return;
+      }
+    }
+  };
+
+  res.globals.GAME_LOOP_RUNNING = true;
 
   document.$('#zone').animate(tick, { FPS: zone.fps });
 
   document.$('#zone').paintContent = function (gfx) {
     //... draw game state here ...
-    res.instances.forEach((inst) => {
-      inst.render(gfx);
-    });
+    if (!res.globals.GAME_LOOP_RUNNING) return;
+    for (const unit of res.units) {
+      unit.render(gfx);
+    }
   };
 }
 
@@ -114,11 +234,9 @@ async function loadZone(zone, res) {
 
   const [layer] = zone.layers;
 
-  const {
-    body: { style },
-  } = document;
+  const { style } = document.$('#zone');
 
-  style.backgroundImage = `url("resources/wallpapers/${layer.wallpaper.filename}")`;
+  style.backgroundImage = `url("resources/wallpapers/${layer.background.filename}")`;
   style.backgroundRepeat =
     layer.repeat.x && layer.repeat.y
       ? 'repeat'
@@ -128,9 +246,10 @@ async function loadZone(zone, res) {
       ? 'repeat-y'
       : 'no-repeat';
 
-  res.instances = zone.instances;
+  res.units = zone.units.map((fn) => fn());
 
-  console.log('Hydrating instances ...');
-  await Promise.all(res.instances.map((inst) => inst.hydrate(res.entities)));
-  console.log('Hydration complete!');
+  console.log('Hydrating units ...');
+  const date = Date.now();
+  await Promise.all(res.units.map((unit) => unit.hydrate(res.entities)));
+  console.log(`Hydration complete! (${(Date.now() - date) / 1000} seconds)`);
 }

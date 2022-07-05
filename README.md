@@ -16,5 +16,11 @@ Hopefully to be a full-fledged game engine and editor ... only time will tell!
 
 Just plop [scapp](https://gitlab.com/sciter-engine/sciter-js-sdk/-/tree/main/bin) in this folder!
 
+## Demo game
+
+- Click fruits
+- Avoid bombs
+- Score is shown in window caption
+
 ![screenshot](screenshot.gif)
 

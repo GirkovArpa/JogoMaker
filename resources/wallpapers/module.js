@@ -1,6 +1,6 @@
-import { WallpaperList } from '../module.js';
-export { Wallpaper, Size } from '../module.js';
+import { BackgroundList } from '../module.js';
+export { Background, Size } from '../module.js';
 
 import wood from './wood.js';
 
-export default new WallpaperList(wood);
+export default new BackgroundList(wood);

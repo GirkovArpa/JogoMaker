@@ -1,4 +1,5 @@
-import { Position } from './math.js';
+import { Position, Size, BoundingBox } from './math.js';
+import { Unit } from './resources.js';
 
 export class Action {
   constructor(name, executor = 'self') {
@@ -6,7 +7,7 @@ export class Action {
     this.executor = executor;
   }
 
-  perform(instance, other = null) {
+  perform(unit, misc = null) {
     // do smth ...
   }
 }
@@ -34,17 +35,18 @@ class Move extends Action {
     this.relative = relative;
   }
 
-  perform(instance) {
-    super.perform(instance);
+  perform(unit) {
+    super.perform(unit);
+
     const direction = this.directions[
       ~~(Math.random() * this.directions.length)
     ];
     if (direction === null) {
-      instance.speed = 0;
+      unit.speed = 0;
       return;
     } else {
-      instance.direction = direction;
-      instance.speed = this.speed + (this.relative ? instance.speed : 0);
+      unit.direction = direction;
+      unit.speed = this.speed + (this.relative ? unit.speed : 0);
     }
   }
 }
@@ -56,24 +58,26 @@ class Bounce extends Action {
     this.solid = solid;
   }
 
-  perform(instance, other) {
-    super.perform(instance, other);
+  perform(unit, misc) {
+    super.perform(unit, misc);
 
-    const { x: instX, y: instY } = instance.position;
-    const { speedX, speedY } = instance;
+    const { other } = misc;
+
+    const { x: instX, y: instY } = unit.position;
+    const { speedX, speedY } = unit;
     const { x: otherX, y: otherY } = other.position;
 
     if (
       ((otherX > instX && speedX > 0) || (otherX < instX && speedX < 0)) &&
-      instance.wouldCollide(new Position(instX + speedX, instY), other)
+      unit.wouldCollide(new Position(instX + speedX, instY), other)
     ) {
-      instance.speedX = -speedX;
+      unit.speedX = -speedX;
     }
     if (
       ((otherY > instY && speedY > 0) || (otherY < instY && speedY < 0)) &&
-      instance.wouldCollide(new Position(instX, instY + speedY), other)
+      unit.wouldCollide(new Position(instX, instY + speedY), other)
     ) {
-      instance.speedY = -speedY;
+      unit.speedY = -speedY;
     }
   }
 }
@@ -83,6 +87,37 @@ class JumpRandom extends Action {
     super('jump random', executor);
     this.snap = snap;
   }
+
+  perform(unit, misc) {
+    super.perform(unit, misc);
+
+    const { res } = misc;
+    const solids = res.units
+      .filter(({ solid }) => solid)
+      .filter((x) => x !== unit);
+
+    // eval bc vscode doesnt know vw and vh are legit units
+    const vw = eval('100vw').valueOf();
+    const vh = eval('100vh').valueOf();
+    const box = new BoundingBox(new Position(0, 0), new Size(vw, vh));
+
+    const randomSpot = () =>
+      new Position(Math.random() * box.width, Math.random() * box.height);
+
+    let position = randomSpot();
+
+    const spotAvailable = () =>
+      !solids.some((solid) => unit.wouldCollide(position, solid));
+
+    while (!spotAvailable()) {
+      position = new Position(
+        Math.random() * box.x2 - box.x1,
+        Math.random() * box.y2 - box.y1
+      );
+    }
+
+    unit.position = position;
+  }
 }
 
 class SetScore extends Action {
@@ -90,6 +125,14 @@ class SetScore extends Action {
     super('set score', executor);
     this.score = score;
     this.relative = relative;
+  }
+
+  perform(unit, misc) {
+    super.perform(unit, misc);
+
+    misc.res.globals.SCORE =
+      this.score + (this.relative ? misc.res.globals.SCORE : 0);
+    Window.this.caption = `Score: ${misc.res.globals.SCORE}`;
   }
 }
 
@@ -99,27 +142,69 @@ class PlaySound extends Action {
     this.sound = sound;
     this.loop = loop;
   }
+
+  async perform(unit, misc) {
+    super.perform(unit, misc);
+
+    const { filename } = misc.res.sounds.find(
+      ({ name }) => name === this.sound
+    );
+
+    const audio = await Audio.load(`resources/sounds/${filename}`);
+    await unit.playAudio(audio);
+  }
 }
 
 class SetAlarm extends Action {
   constructor(executor = 'self', alarm = 0, ticks = 60, relative = false) {
     super('set alarm', executor);
+    this.alarm = alarm;
     this.ticks = ticks;
     this.relative = false;
   }
+
+  perform(unit, misc) {
+    super.perform(unit, misc);
+
+    unit.setAlarm(
+      this.alarm,
+      this.ticks + (this.relative ? unit.getAlarm(this.alarm.ticks) : 0)
+    );
+  }
 }
 
-class CreateInstance extends Action {
-  constructor(executor = 'self', object, position = new Position()) {
-    super('create instance', executor);
-    this.object = object;
+class CreateUnit extends Action {
+  constructor(executor = 'self', entity, position = new Position()) {
+    super('create unit', executor);
+    this.entity = entity;
     this.position = position;
+  }
+
+  async perform(unit, misc) {
+    super.perform(unit, misc);
+
+    const { res } = misc;
+
+    const u = new Unit(this.entity, this.position);
+    res.units.push(u);
+    await u.hydrate(res.entities);
   }
 }
 
 class Restart extends Action {
   constructor(executor = 'self') {
     super('restart', executor);
+  }
+
+  async perform(unit, misc) {
+    super.perform(unit, misc);
+
+    console.log('Restart');
+    for (const u of [...misc.res.units]) {
+      u.destroy(misc.res);
+    }
+
+    await misc.res.globals.RESTART();
   }
 }
 
@@ -128,6 +213,14 @@ class Sleep extends Action {
     super('sleep', executor);
     this.milliseconds = milliseconds;
     this.redraw = redraw;
+  }
+
+  async perform(unit, misc) {
+    super.perform(unit, misc);
+
+    console.log('SLEEPING');
+    await misc.res.globals.SLEEP(this.milliseconds);
+    console.log('AWAKE');
   }
 }
 
@@ -138,7 +231,7 @@ export default {
   SetScore,
   PlaySound,
   SetAlarm,
-  CreateInstance,
+  CreateUnit,
   Sleep,
   Restart,
 };

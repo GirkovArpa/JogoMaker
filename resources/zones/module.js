@@ -3,8 +3,8 @@ export {
   Zone,
   Layer,
   LayerList,
-  Instance,
-  InstanceList,
+  Unit,
+  UnitList,
   Size,
   Position,
 } from '../module.js';

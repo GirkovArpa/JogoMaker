@@ -1,12 +1,15 @@
 html {
   overflow: hidden;
+  background-color: red;
 }
 
 body {
   margin: 0;
+  background-color: lime;
 }
 
-#room {
+#zone {
   width: *;
   height: *;
+  background-color: cyan;
 }

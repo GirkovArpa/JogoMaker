@@ -1,3 +1,3 @@
-import { Wallpaper, Size } from './module.js';
+import { Background, Size } from './module.js';
 
-export default new Wallpaper('wood', 'wood.png', new Size(96, 96));
+export default new Background('wood', 'wood.png', new Size(96, 96));

@@ -3,6 +3,15 @@ export class Position {
     this.x = x;
     this.y = y;
   }
+
+  isInside(box = new BoundingBox()) {
+    return (
+      this.x >= box.x1 &&
+      this.x <= box.x2 &&
+      this.y >= box.y1 &&
+      this.y <= box.y2
+    );
+  }
 }
 
 export class Size {
@@ -25,6 +34,37 @@ export class BoundingBox {
     if (this.x1 >= other.x2 || other.x1 >= this.x2) return false;
     if (this.y1 >= other.y2 || other.y1 >= this.y2) return false;
     return true;
+  }
+
+  toJSON() {
+    const { x1, y1, x2, y2 } = this;
+    return { x1, y1, x2, y2 };
+  }
+
+  get position() {
+    const { x, y } = this.#position;
+    return new Position(x, y);
+  }
+
+  get x() {
+    return this.#position.x;
+  }
+
+  get y() {
+    return this.#position.y;
+  }
+
+  get size() {
+    const { width, height } = this.#size;
+    return new Size(width, height);
+  }
+
+  get width() {
+    return this.#size.width;
+  }
+
+  get height() {
+    return this.#size.height;
   }
 
   get x1() {
@@ -102,5 +142,5 @@ export default {
   Velocity,
   Position,
   Size,
-  BoundingBox
+  BoundingBox,
 };
