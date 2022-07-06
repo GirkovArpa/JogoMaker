@@ -8,7 +8,8 @@ export default new Entity(
   new TriggerList(
     new Trigger.Create(
       new ActionList(
-        new Action.SetVariable()
+        new Action.SetVariable('self', 'dead'),
+        new Action.SpeedVertical('self', 0)
       )
     )
   )

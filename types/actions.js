@@ -242,6 +242,18 @@ class SetVariable extends Action {
   }
 }
 
+class SpeedVertical extends Action {
+  constructor(executor = 'self', speedY = 0) {
+    super('speed vertical', executor);
+  }
+
+  perform(unit, misc) {
+    super.perform(unit, misc);
+
+    unit.setSpeedY(this.speedY);
+  }
+}
+
 export default {
   Move,
   Bounce,
