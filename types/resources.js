@@ -11,7 +11,9 @@ export class Resource {
   async hydrate(resourceList = null, misc = null) {
     if (this instanceof Layer) {
       const backgrounds = resourceList;
-      this.background = backgrounds.find(({ name }) => name === this.background);
+      this.background = backgrounds.find(
+        ({ name }) => name === this.background
+      );
     } else if (this instanceof Sound) {
       this.audio = await Audio.load(
         `games/${Resource.GAME}/resources/sounds/${this.filename}`
@@ -211,6 +213,8 @@ export class Unit extends Resource {
   #image;
   #audios;
 
+  #localVariables;
+
   constructor(entity, position = new Position()) {
     super('');
 
@@ -229,8 +233,17 @@ export class Unit extends Resource {
     this.#velocity = new Velocity();
     this.#alarms = new AlarmList();
     this.#audios = [];
+    this.#localVariables = {};
 
     this.created = false;
+  }
+
+  getLocalVariable(name) {
+    return this.#localVariables[name];
+  }
+
+  setLocalVariable(name, value) {
+    this.#localVariables[name] = value;
   }
 
   destroy(res) {

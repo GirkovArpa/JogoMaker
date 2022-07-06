@@ -5,5 +5,11 @@ export default new Entity(
   'car_racing',
   true,
   false,
-  new TriggerList()
+  new TriggerList(
+    new Trigger.Create(
+      new ActionList(
+        new Action.SetVariable()
+      )
+    )
+  )
 );

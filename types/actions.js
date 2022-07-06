@@ -201,7 +201,6 @@ class Restart extends Action {
   async perform(unit, misc) {
     super.perform(unit, misc);
 
-    console.log('Restart');
     for (const u of [...misc.res.units]) {
       u.destroy(misc.res);
     }
@@ -226,6 +225,23 @@ class Sleep extends Action {
   }
 }
 
+class SetVariable extends Action {
+  constructor(executor = 'self', variable, value = 0, relative = false) {
+    super('set variable', executor);
+  }
+
+  perform(unit, misc) {
+    super.perform(unit, misc);
+
+    if (this.relative) {
+      const value = unit.getLocalVariable(this.variable);
+      unit.setLocalVariable(this.variable, this.value + value);
+    } else {
+      unit.setLocalVariable(this.variable, this.value);
+    }
+  }
+}
+
 export default {
   Move,
   Bounce,
@@ -236,4 +252,5 @@ export default {
   CreateUnit,
   Sleep,
   Restart,
+  SetVariable
 };
