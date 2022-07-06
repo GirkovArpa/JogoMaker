@@ -18,16 +18,22 @@ import {
 } from './types/resources.js';
 import Triggers from './types/triggers.js';
 import { Position, Size, Velocity, BoundingBox } from './types/math.js';
-import RESOURCES from './games/fruit-clicker/resources/module.js';
 
-main();
+main('fruit-clicker');
 
-async function main() {
+async function main(game) {
   if (!Window.this.scapp.argv.includes('--debug')) {
     Window.this.modal({ url: 'about.html' });
   }
 
+  const { default: RESOURCES } = await import(
+    `./games/${game}/resources/module.js`
+  );
+
+  Resource.GAME = game;
+
   RESOURCES.globals = {
+    GAME: game,
     SCORE: 0,
   };
 
@@ -161,7 +167,7 @@ async function play(res) {
       // update position
       // decrement alarms
       unit.tick();
-    }
+    }  
 
     // reset input states
     Object.values(INPUT_STATE.MOUSE).forEach(

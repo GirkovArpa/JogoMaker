@@ -6,15 +6,19 @@ export class Resource {
     this.name = name;
   }
 
-  async hydrate(resourceList = null) {
+  static GAME = null;
+
+  async hydrate(resourceList = null, misc = null) {
     if (this instanceof Layer) {
       const wallpapers = resourceList;
       this.background = wallpapers.find(({ name }) => name === this.background);
     } else if (this instanceof Sound) {
-      this.audio = await Audio.load(`games/fruit-clicker/resources/sounds/${this.filename}`);
+      this.audio = await Audio.load(
+        `games/${Resource.GAME}/resources/sounds/${this.filename}`
+      );
     } else if (this instanceof Sprite) {
       this.image = await Graphics.Image.load(
-        `games/fruit-clicker/resources/sprites/${this.filename}`
+        `games/${Resource.GAME}/resources/sprites/${this.filename}`
       );
     } else if (this instanceof Entity) {
       const sprites = resourceList;
