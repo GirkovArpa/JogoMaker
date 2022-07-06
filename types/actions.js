@@ -233,12 +233,11 @@ class SetVariable extends Action {
   perform(unit, misc) {
     super.perform(unit, misc);
 
-    if (this.relative) {
-      const value = unit.getLocalVariable(this.variable);
-      unit.setLocalVariable(this.variable, this.value + value);
-    } else {
-      unit.setLocalVariable(this.variable, this.value);
-    }
+    unit.evaluateExpression(
+      `${this.variable} ${this.relative ? '+' : ''}= ${JSON.stringify(
+        this.value
+      )}`
+    );
   }
 }
 
