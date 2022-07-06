@@ -367,6 +367,15 @@ export class Unit extends Resource {
   setAlarm(id, ticks) {
     this.#alarms.find((alarm) => alarm.id === id).set(ticks);
   }
+
+  /** `this` refers to `this.#localVariables` */
+  evaluateExpression(expression, not = false) {
+    const boolean = function (expression) {
+      return eval(expression);
+    }.call(unit.#localVariables, expression);
+
+    return not ? !boolean : Boolean(boolean);
+  }
 }
 
 export class Alarm {

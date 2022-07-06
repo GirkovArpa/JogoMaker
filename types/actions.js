@@ -254,6 +254,18 @@ class SpeedVertical extends Action {
   }
 }
 
+class TestExpression extends Action {
+  constructor(executor = 'self', expression) {
+    super('test expression', executor);
+  }
+
+  perform(unit, misc) {
+    super.perform(unit, misc);
+    const boolean = unit.evaluateExpression(this.expression, misc.not);
+    return boolean;
+  }
+}
+
 export default {
   Move,
   Bounce,
@@ -264,5 +276,7 @@ export default {
   CreateUnit,
   Sleep,
   Restart,
-  SetVariable
+  SetVariable,
+  SpeedVertical,
+  TestExpression
 };

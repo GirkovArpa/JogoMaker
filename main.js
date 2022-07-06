@@ -109,6 +109,27 @@ async function play(res) {
   const tick = function () {
     //  ... update game state ...
     // ... compute location of objects ...
+
+    // Begin Step
+    for (const unit of res.units) {
+      if (res.globals.SLEEPING) break;
+    }
+
+    // Step
+    for (const unit of res.units) {
+      if (res.globals.SLEEPING) break;
+      const { triggers } = unit.entity;
+      for (const trigger of triggers) {
+        switch (trigger.name) {
+          case 'step': {
+            const misc = { res };
+            trigger.call(unit, misc);
+            break;
+          }
+        }
+      }
+    }
+
     for (const unit of res.units) {
       if (res.globals.SLEEPING) break;
 
@@ -167,7 +188,13 @@ async function play(res) {
       // update position
       // decrement alarms
       unit.tick();
-    }  
+    }
+
+    // End Step
+    for (const unit of res.units) {
+      if (res.globals.SLEEPING) break;
+    }
+
 
     // reset input states
     Object.values(INPUT_STATE.MOUSE).forEach(
@@ -228,6 +255,8 @@ async function play(res) {
   document.$('#zone').paintContent = function (gfx) {
     //... draw game state here ...
     if (!res.globals.GAME_LOOP_RUNNING) return;
+
+    // draw event
     for (const unit of res.units) {
       unit.render(gfx);
     }

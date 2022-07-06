@@ -57,6 +57,16 @@ export class Alarm extends Trigger {
   }
 }
 
+export class Step extends Trigger {
+  constructor(actions) {
+    super('step', actions);
+  }
+
+  call(unit, misc) {
+    super.call(unit, misc);
+  }
+}
+
 export class Mouse extends Trigger {
   constructor(name, actions, button = 1) {
     super(name, actions);
@@ -102,6 +112,7 @@ export default {
   Alarm,
   Create,
   Collision,
+  Step,
   Mouse: {
     LEFT: Mouse.LEFT,
     RIGHT: Mouse.RIGHT,
