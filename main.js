@@ -60,7 +60,7 @@ async function hydrateResources(res) {
     ...res.zones
       .map(({ layers }) => layers)
       .flat(1)
-      .map((layer) => layer.hydrate(res.wallpapers)),
+      .map((layer) => layer.hydrate(res.backgrounds)),
     ...res.sprites.map((spr) => spr.hydrate()),
     ...res.entities.map((ent) => ent.hydrate(res.sprites)),
   ]);
@@ -208,7 +208,6 @@ async function play(res) {
     res.globals.SCORE = 0;
     await loadZone(zone, res);
     res.globals.RESUME_LOOP(zone.fps);
-    console.log(JSON.stringify(res.globals));
   };
 
   res.globals.SLEEP = async function (milliseconds) {
@@ -242,7 +241,7 @@ async function loadZone(zone, res) {
 
   const { style } = document.$('#zone');
 
-  style.backgroundImage = `url("games/fruit-clicker/resources/wallpapers/${layer.background.filename}")`;
+  style.backgroundImage = `url("games/${Resource.GAME}/resources/backgrounds/${layer.background.filename}")`;
   style.backgroundRepeat =
     layer.repeat.x && layer.repeat.y
       ? 'repeat'
