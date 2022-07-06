@@ -15,7 +15,8 @@ export default new Entity(
     new Trigger.Step(
       new ActionList(
         new Action.TestExpression('self', 'dead'),
-        new Action.ExitTrigger('self')
+        new Action.ExitTrigger('self'),
+        new Action.TestExpression('self', 'global.petrol <= 0')
       )
     )
   )

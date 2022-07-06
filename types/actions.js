@@ -285,5 +285,5 @@ export default {
   SetVariable,
   SpeedVertical,
   TestExpression,
-  ExitTrigger
+  ExitTrigger,
 };

@@ -1,5 +1,6 @@
 import { TriggerList } from './triggers.js';
 import { Velocity, Position, Size, BoundingBox } from './math.js';
+import sandboxedEval from '../utils/sandboxed-eval.js';
 
 export class Resource {
   constructor(name) {
@@ -238,6 +239,8 @@ export class Unit extends Resource {
     this.created = false;
   }
 
+  static globalVariables = {};
+
   getLocalVariable(name) {
     return this.#localVariables[name];
   }
@@ -368,11 +371,14 @@ export class Unit extends Resource {
     this.#alarms.find((alarm) => alarm.id === id).set(ticks);
   }
 
-  /** `this` refers to `this.#localVariables` */
+  /** `this` refers to `this.#localVariables`
+   */
   evaluateExpression(expression, not = false) {
-    const boolean = function (expression) {
-      return eval(expression);
-    }.call(unit.#localVariables, expression);
+    const boolean = sandboxedEval(
+      expression,
+      Unit.#globalVariables,
+      unit.#localVariables
+    );
 
     return not ? !boolean : Boolean(boolean);
   }
