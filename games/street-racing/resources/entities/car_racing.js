@@ -16,7 +16,9 @@ export default new Entity(
       new ActionList(
         new Action.TestExpression('self', 'dead'),
         new Action.ExitTrigger('self'),
-        new Action.TestExpression('self', 'global.petrol <= 0')
+        new Action.TestExpression('self', 'global.petrol <= 0'),
+        new Action.SpeedVertical('self', 3),
+        new Action.SetVariable('self', 'global.petrol', -1, true)
       )
     )
   )

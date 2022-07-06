@@ -214,7 +214,7 @@ export class Unit extends Resource {
   #image;
   #audios;
 
-  #localVariables;
+  #local;
 
   constructor(entity, position = new Position()) {
     super('');
@@ -234,19 +234,40 @@ export class Unit extends Resource {
     this.#velocity = new Velocity();
     this.#alarms = new AlarmList();
     this.#audios = [];
-    this.#localVariables = {};
+    this.#local = {};
 
     this.created = false;
   }
 
-  static globalVariables = {};
+  static #global = {};
+
+  get global() {
+    return Unit.#global;
+  }
+
+  get local() {
+    return this.#local;
+  }
 
   getLocalVariable(name) {
-    return this.#localVariables[name];
+    return this.local[name];
   }
 
   setLocalVariable(name, value) {
-    this.#localVariables[name] = value;
+    this.global[name] = value;
+  }
+
+  getGlobalVariable(name) {
+    return this.global[name];
+  }
+
+  setGlobalVariable(name, value) {
+    this.global[name] = value;
+  }
+
+  evaluateExpression(expression, not = false) {
+    const boolean = sandboxedEval(expression, this.global, this.local);
+    return not ? !boolean : Boolean(boolean);
   }
 
   destroy(res) {
@@ -369,18 +390,6 @@ export class Unit extends Resource {
 
   setAlarm(id, ticks) {
     this.#alarms.find((alarm) => alarm.id === id).set(ticks);
-  }
-
-  /** `this` refers to `this.#localVariables`
-   */
-  evaluateExpression(expression, not = false) {
-    const boolean = sandboxedEval(
-      expression,
-      Unit.#globalVariables,
-      unit.#localVariables
-    );
-
-    return not ? !boolean : Boolean(boolean);
   }
 }
 
