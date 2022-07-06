@@ -266,6 +266,12 @@ class TestExpression extends Action {
   }
 }
 
+class ExitTrigger extends Action {
+  constructor(executor = 'self') {
+    super('exit trigger', executor);
+  }
+}
+
 export default {
   Move,
   Bounce,
@@ -278,5 +284,6 @@ export default {
   Restart,
   SetVariable,
   SpeedVertical,
-  TestExpression
+  TestExpression,
+  ExitTrigger
 };

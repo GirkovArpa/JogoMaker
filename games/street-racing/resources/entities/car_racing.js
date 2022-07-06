@@ -12,6 +12,11 @@ export default new Entity(
         new Action.SpeedVertical('self', 0)
       )
     ),
-    new Trigger.Step(new ActionList())
+    new Trigger.Step(
+      new ActionList(
+        new Action.TestExpression('self', 'dead'),
+        new Action.ExitTrigger('self')
+      )
+    )
   )
 );

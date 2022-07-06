@@ -1,4 +1,4 @@
-import { Action } from './actions.js';
+import Action from './actions.js';
 
 export class Trigger {
   constructor(name, actions) {
@@ -7,11 +7,21 @@ export class Trigger {
   }
 
   async call(unit, misc) {
-    for (const action of this.actions) {
+    for (let i = 0; i < this.actions.length; i++) {
       if (!misc.res.globals.GAME_LOOP_RUNNING) {
         break;
       }
-      await action.perform(unit, misc);
+      const action = this.actions[i];
+      if (action instanceof Action.ExitTrigger) {
+        break;
+      }
+      const result = await action.perform(unit, misc);
+      if (action instanceof Action.TestExpression) {
+        if (!result) {
+          // skip the next action
+          i++;
+        }
+      }
     }
   }
 }
