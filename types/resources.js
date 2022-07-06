@@ -11,10 +11,10 @@ export class Resource {
       const wallpapers = resourceList;
       this.background = wallpapers.find(({ name }) => name === this.background);
     } else if (this instanceof Sound) {
-      this.audio = await Audio.load(`resources/sounds/${this.filename}`);
+      this.audio = await Audio.load(`games/fruit-clicker/resources/sounds/${this.filename}`);
     } else if (this instanceof Sprite) {
       this.image = await Graphics.Image.load(
-        `resources/sprites/${this.filename}`
+        `games/fruit-clicker/resources/sprites/${this.filename}`
       );
     } else if (this instanceof Entity) {
       const sprites = resourceList;

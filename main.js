@@ -18,7 +18,7 @@ import {
 } from './types/resources.js';
 import Triggers from './types/triggers.js';
 import { Position, Size, Velocity, BoundingBox } from './types/math.js';
-import RESOURCES from './resources/module.js';
+import RESOURCES from './games/fruit-clicker/resources/module.js';
 
 main();
 
@@ -236,7 +236,7 @@ async function loadZone(zone, res) {
 
   const { style } = document.$('#zone');
 
-  style.backgroundImage = `url("resources/wallpapers/${layer.background.filename}")`;
+  style.backgroundImage = `url("games/fruit-clicker/resources/wallpapers/${layer.background.filename}")`;
   style.backgroundRepeat =
     layer.repeat.x && layer.repeat.y
       ? 'repeat'

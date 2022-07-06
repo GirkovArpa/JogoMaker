@@ -150,7 +150,9 @@ class PlaySound extends Action {
       ({ name }) => name === this.sound
     );
 
-    const audio = await Audio.load(`resources/sounds/${filename}`);
+    const audio = await Audio.load(
+      `games/fruit-clicker/resources/sounds/${filename}`
+    );
     await unit.playAudio(audio);
   }
 }
