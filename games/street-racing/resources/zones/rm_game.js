@@ -24,9 +24,9 @@ export default new Zone(
     )
   ),
   new UnitList(
-    () => new Unit('controller', new Position(0, 0)),
-    () => new Unit('car_down', new Position(80, 128)),
+    //() => new Unit('controller', new Position(0, 0)),
+    //() => new Unit('car_down', new Position(80, 128)),
     () => new Unit('car_racing', new Position(220, 272)),
-    () => new Unit('car_up', new Position(280, 224))
+    //() => new Unit('car_up', new Position(280, 224))
   )
 );

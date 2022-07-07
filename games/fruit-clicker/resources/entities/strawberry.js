@@ -16,7 +16,7 @@ export default new Entity(
         new Action.SetScore('self', 30, true),
         new Action.PlaySound('self', 'click', false)
       ),
-      Trigger.Mouse.LEFT
+      Trigger.Mouse.BUTTONS.LEFT
     )
   )
 );

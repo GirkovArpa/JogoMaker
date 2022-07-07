@@ -13,7 +13,7 @@ export default new Entity(
         new Action.Sleep('self', 1000, true),
         new Action.Restart()
       ),
-      Trigger.Mouse.LEFT
+      Trigger.Mouse.BUTTONS.LEFT
     )
   )
 );

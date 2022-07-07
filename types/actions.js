@@ -14,10 +14,12 @@ export class Action {
 
 export class ActionList extends Array {
   push(action) {
-    if (action instanceof Action) {
+    if (action instanceof Action || action instanceof ActionList) {
       super.push(action);
     } else {
-      throw new Error(`Not an Action: ${JSON.stringify(action)}`);
+      throw new Error(
+        `Neither an Action nor an ActionList: ${JSON.stringify(action)}`
+      );
     }
   }
 }
@@ -63,19 +65,19 @@ class Bounce extends Action {
 
     const { other } = misc;
 
-    const { x: instX, y: instY } = unit.position;
+    const { x: unitX, y: unitY } = unit.position;
     const { speedX, speedY } = unit;
     const { x: otherX, y: otherY } = other.position;
 
     if (
-      ((otherX > instX && speedX > 0) || (otherX < instX && speedX < 0)) &&
-      unit.wouldCollide(new Position(instX + speedX, instY), other)
+      ((otherX > unitX && speedX > 0) || (otherX < unitX && speedX < 0)) &&
+      unit.wouldCollide(new Position(unitX + speedX, unitY), other)
     ) {
       unit.speedX = -speedX;
     }
     if (
-      ((otherY > instY && speedY > 0) || (otherY < instY && speedY < 0)) &&
-      unit.wouldCollide(new Position(instX, instY + speedY), other)
+      ((otherY > unitY && speedY > 0) || (otherY < unitY && speedY < 0)) &&
+      unit.wouldCollide(new Position(unitX, unitY + speedY), other)
     ) {
       unit.speedY = -speedY;
     }
@@ -120,6 +122,23 @@ class JumpRandom extends Action {
   }
 }
 
+class JumpToPosition extends Action {
+  constructor(executor = 'self', position = new Position(), relative = false) {
+    super('jump to position', executor);
+    this.position = position;
+    this.relative = relative;
+  }
+
+  perform(unit, misc) {
+    super.perform(unit, misc);
+
+    const newX = this.position.x + (this.relative ? unit.position.x : 0);
+    const newY = this.position.y + (this.relative ? unit.position.y : 0);
+    const newPos = new Position(newX, newY);
+    unit.position = newPos;
+  }
+}
+
 class SetScore extends Action {
   constructor(executor = 'self', score = 0, relative = false) {
     super('set score', executor);
@@ -153,7 +172,35 @@ class PlaySound extends Action {
     const audio = await Audio.load(
       `games/${misc.res.globals.GAME}/resources/sounds/${filename}`
     );
+    audio.name = this.sound;
     await unit.playAudio(audio);
+  }
+}
+
+class StopSound extends Action {
+  constructor(executor = 'self', sound) {
+    super('stop sound', executor);
+    this.sound = sound;
+  }
+
+  perform(unit, misc) {
+    super.perform(unit, misc);
+
+    misc.units.forEach((u) => u.stopSound(this.sound));
+  }
+}
+
+class CheckSound extends Action {
+  constructor(executor = 'self', sound, not = false) {
+    super('check sound', executor);
+    this.sound = sound;
+    this.not = not;
+  }
+
+  perform(unit, misc) {
+    super.perform(unit, misc);
+
+    return misc.units.some((u) => u.isSoundPlaying(this.sound));
   }
 }
 
@@ -202,10 +249,28 @@ class Restart extends Action {
     super.perform(unit, misc);
 
     for (const u of [...misc.res.units]) {
-      u.destroy(misc.res);
+      u.dele(misc.res);
     }
 
     await misc.res.globals.RESTART();
+  }
+}
+
+class RestartCurrentZone extends Action {
+  constructor(executor = 'self') {
+    super('restart current zone', executor);
+  }
+
+  async perform(unit, misc) {
+    super.perform(unit, misc);
+
+    for (const u of [...misc.res.units]) {
+      if (!u.entity.persistent) {
+        u.dele(misc.res);
+      }
+    }
+
+    await misc.res.globals.RESTART_CURRENT_ZONE();
   }
 }
 
@@ -228,28 +293,29 @@ class Sleep extends Action {
 class SetVariable extends Action {
   constructor(executor = 'self', variable, value = 0, relative = false) {
     super('set variable', executor);
+    this.variable = variable;
+    this.value = value;
+    this.relative = relative;
   }
 
   perform(unit, misc) {
     super.perform(unit, misc);
 
-    unit.evaluateExpression(
-      `${this.variable} ${this.relative ? '+' : ''}= ${JSON.stringify(
-        this.value
-      )}`
-    );
+    const value = unit.sandboxedEval(this.value);
+    const js = `${this.variable} ${this.relative ? '+' : ''}= ${value}`;
+    unit.sandboxedEval(js);
   }
 }
 
 class SpeedVertical extends Action {
   constructor(executor = 'self', speedY = 0) {
     super('speed vertical', executor);
+    this.speedY = speedY;
   }
 
   perform(unit, misc) {
     super.perform(unit, misc);
-
-    unit.setSpeedY(this.speedY);
+    unit.speedY = this.speedY;
   }
 }
 
@@ -271,10 +337,109 @@ class ExitTrigger extends Action {
   }
 }
 
+class ChangeSprite extends Action {
+  constructor(executor = 'self', sprite, subimage = 0, speed = 1) {
+    super('change sprite', executor);
+    this.sprite = sprite;
+    this.subimage = subimage;
+    this.speed = speed;
+  }
+
+  perform(unit, misc) {
+    super.perform(unit, misc);
+
+    unit.sprite = misc.res.sprites.find(({ name }) => name === this.sprite);
+    unit.subimage =
+      typeof this.subimage === 'string'
+        ? unit.sandboxedEval(this.subimage)
+        : this.subimage;
+
+    unit.imageSpeed = this.speed;
+  }
+}
+
+class DestroyUnit extends Action {
+  constructor(executor = 'self') {
+    super('destroy unit', executor);
+  }
+
+  perform(unit, misc) {
+    if (executor === 'self') {
+      unit.destroy();
+    } else if (executor === 'other') {
+      misc.other.destroy();
+    } else {
+      misc.res.units.find(({ name }) => name === executor).destroy();
+    }
+  }
+}
+
+class SetLives extends Action {
+  constructor(executor = 'self', value, relative = false) {
+    super('destroy unit', executor);
+  }
+
+  perform(unit, misc) {
+    super.perform(unit, misc);
+
+    Unit.setGlobal('lives', this.value, relative);
+  }
+}
+
+class TestChance extends Action {
+  constructor(executor = 'self', sides = 2, not = false) {
+    super('test chance', executor);
+    this.sides = sides;
+    this.not = not;
+  }
+
+  perform(unit, misc) {
+    super.perform(unit, misc);
+
+    const bool = ~~(Math.random() * this.sides) === 0;
+    const result = this.not ? !bool : bool;
+    return result;
+  }
+}
+
+class CheckEntity extends Action {
+  constructor(
+    executor = 'self',
+    entity,
+    position = new Position(),
+    relative = false,
+    not = false
+  ) {
+    super('check entity', executor);
+    this.entity = entity;
+    this.position = position;
+    this.relative = relative;
+    this.not = not;
+  }
+
+  perform(unit, misc) {
+    super.perform(unit, misc);
+
+    const position = this.relative
+      ? new Position(
+          unit.position.x + this.position.x,
+          unit.position.y + this.position.y
+        )
+      : position;
+    const others = misc.res.units.filter(({ name }) => name === this.entity);
+
+    return others.some((other) => {
+      const box = new BoundingBox(other.position, other.sprite?.size);
+      return position.isInside(box);
+    });
+  }
+}
+
 export default {
   Move,
   Bounce,
   JumpRandom,
+  JumpToPosition,
   SetScore,
   PlaySound,
   SetAlarm,
@@ -285,4 +450,12 @@ export default {
   SpeedVertical,
   TestExpression,
   ExitTrigger,
+  ChangeSprite,
+  DestroyUnit,
+  CheckSound,
+  StopSound,
+  SetLives,
+  RestartCurrentZone,
+  TestChance,
+  CheckEntity,
 };

@@ -1,4 +1,4 @@
-import { TriggerList } from './triggers.js';
+import { TriggerList } from './triggers/module.js';
 import { Velocity, Position, Size, BoundingBox } from './math.js';
 import sandboxedEval from '../utils/sandboxed-eval.js';
 
@@ -9,26 +9,24 @@ export class Resource {
 
   static GAME = null;
 
-  async hydrate(resourceList = null, misc = null) {
+  async hydrate(res, misc = null) {
     if (this instanceof Layer) {
-      const backgrounds = resourceList;
-      this.background = backgrounds.find(
+      this.background = res.backgrounds.find(
         ({ name }) => name === this.background
       );
     } else if (this instanceof Sound) {
       this.audio = await Audio.load(
         `games/${Resource.GAME}/resources/sounds/${this.filename}`
       );
+      this.audio.name = this.name;
     } else if (this instanceof Sprite) {
       this.image = await Graphics.Image.load(
         `games/${Resource.GAME}/resources/sprites/${this.filename}`
       );
     } else if (this instanceof Entity) {
-      const sprites = resourceList;
-      this.sprite = sprites.find(({ name }) => name === this.sprite);
+      this.sprite = res.sprites.find(({ name }) => name === this.sprite);
     } else if (this instanceof Unit) {
-      const entities = resourceList;
-      this.entity = entities.find(({ name }) => name === this.entity);
+      this.entity = res.entities.find(({ name }) => name === this.entity);
       this.sprite = this.entity.sprite || null;
       this.visible = this.entity.visible;
       this.solid = this.entity.solid;
@@ -43,6 +41,10 @@ export class ResourceList extends Array {
     } else {
       throw new Error(`Not unit of Resource: ${JSON.stringify(resource)}`);
     }
+  }
+
+  remove(resource) {
+    this.splice(this.indexOf(resource), 1);
   }
 }
 
@@ -74,13 +76,15 @@ export class Entity extends Resource {
     sprite,
     visible = true,
     solid = false,
-    triggers = new TriggerList()
+    triggers = new TriggerList(),
+    persistent = false
   ) {
     super(name);
     this.sprite = sprite;
     this.visible = visible;
     this.solid = solid;
     this.triggers = triggers;
+    this.persistent = persistent;
   }
 
   async hydrate(sprites) {
@@ -99,10 +103,11 @@ export class EntityList extends ResourceList {
 }
 
 export class Sprite extends Resource {
-  constructor(name, filename, size = new Size()) {
+  constructor(name, filename, size = new Size(), subimages = 1) {
     super(name);
     this.filename = filename;
     this.size = size;
+    this.subimages = subimages;
   }
 
   async hydrate() {
@@ -194,6 +199,14 @@ export class Layer extends Resource {
   async hydrate(backgrounds) {
     await super.hydrate(backgrounds);
   }
+
+  get speedX() {
+    return this.#velocity.speedX;
+  }
+
+  get speedY() {
+    return this.#velocity.speedY;
+  }
 }
 
 export class LayerList extends ResourceList {
@@ -216,12 +229,15 @@ export class Unit extends Resource {
 
   #local;
 
+  #subimage;
+
   constructor(entity, position = new Position()) {
     super('');
 
     this.entity = entity;
     this.visible = this.entity.visible;
     this.solid = this.entity.solid;
+    this.imageSpeed = 1;
 
     const { x, y } = position;
 
@@ -236,7 +252,10 @@ export class Unit extends Resource {
     this.#audios = [];
     this.#local = {};
 
+    this.#subimage = 0;
+
     this.created = false;
+    this.destroy = false;
   }
 
   static #global = {};
@@ -245,40 +264,53 @@ export class Unit extends Resource {
     return Unit.#global;
   }
 
+  static setGlobal(name, value, relative = false) {
+    if (relative) {
+      Unit.#global[name] = Unit.#global[name] + value;
+    } else {
+      Unit.#global[name] = value;
+    }
+  }
+
   get local() {
     return this.#local;
   }
 
-  getLocalVariable(name) {
-    return this.local[name];
-  }
-
-  setLocalVariable(name, value) {
-    this.global[name] = value;
-  }
-
-  getGlobalVariable(name) {
-    return this.global[name];
-  }
-
-  setGlobalVariable(name, value) {
-    this.global[name] = value;
+  sandboxedEval(js = '') {
+    return sandboxedEval(js, this.global, this.local);
   }
 
   evaluateExpression(expression, not = false) {
-    const boolean = sandboxedEval(expression, this.global, this.local);
+    const boolean = this.sandboxedEval(expression);
     return not ? !boolean : Boolean(boolean);
   }
 
-  destroy(res) {
+  dele(res) {
     this.#audios.forEach((audio) => audio.stop());
-    res.units.splice(res.units.indexOf(this), 1);
+    res.units.remove(this);
+  }
+
+  destroy() {
+    // flag for destroying
+    this.destroy = true;
   }
 
   async playAudio(audio) {
     this.#audios.push(audio);
     await audio.play();
     this.#audios.splice(this.#audios.indexOf(audio), 1);
+  }
+
+  isSoundPlaying(sound) {
+    return this.#audios.some(
+      (audio) => audio.name === sound && audio.progress > 0
+    );
+  }
+
+  stopSound(sound) {
+    this.#audios
+      .filter(({ name }) => name === sound)
+      .forEach((audio) => audio.stop());
   }
 
   async hydrate(entities) {
@@ -304,15 +336,32 @@ export class Unit extends Resource {
     return myBox.isColliding(theirBox);
   }
 
+  get subimage() {
+    return this.#subimage % this.entity.sprite.subimages;
+  }
+
+  set subimage(n) {
+    this.#subimage = n;
+  }
+
   render(gfx) {
     if (this.visible && this.#image !== null) {
+      const { sprite } = this.entity;
       gfx.draw(this.#image, {
-        ...this.position,
+        x: this.position.x,
+        y: this.position.y,
+        srcWidth: sprite.size.width,
+        srcHeight: sprite.size.height,
+        srcX: sprite.size.width * Math.floor(this.subimage),
+        srcY: 0,
+        width: sprite.size.width,
+        height: sprite.size.height,
       });
     }
   }
 
   tick() {
+    this.subimage += this.imageSpeed;
     this.#alarms.forEach((alarm) => alarm.tick());
     this.step();
   }

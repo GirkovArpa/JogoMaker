@@ -16,10 +16,10 @@ import {
   Layer,
   LayerList,
 } from './types/resources.js';
-import Triggers from './types/triggers.js';
+import Triggers from './types/triggers/module.js';
 import { Position, Size, Velocity, BoundingBox } from './types/math.js';
 
-main('fruit-clicker');
+main('street-racing');
 
 async function main(game) {
   if (!Window.this.scapp.argv.includes('--debug')) {
@@ -53,28 +53,49 @@ function adjustWindow(caption = '', size = new Size()) {
 }
 
 async function hydrateResources(res) {
-  console.log('Hydrating resources ...');
+  //console.log('Hydrating resources ...');
   const date = Date.now();
   await Promise.all([
     ...res.sounds.map((snd) => snd.hydrate()),
     ...res.zones
       .map(({ layers }) => layers)
       .flat(1)
-      .map((layer) => layer.hydrate(res.backgrounds)),
+      .map((layer) => layer.hydrate(res)),
     ...res.sprites.map((spr) => spr.hydrate()),
-    ...res.entities.map((ent) => ent.hydrate(res.sprites)),
+    ...res.entities.map((ent) => ent.hydrate(res)),
   ]);
-  console.log(`Hydration complete! (${(Date.now() - date) / 1000} seconds)`);
+  //console.log(`Hydration complete! (${(Date.now() - date) / 1000} seconds)`);
+}
+
+function handleTrigger(name, res) {
+  for (const unit of res.units) {
+    if (res.globals.SLEEPING) break;
+    const trigger = unit.entity.triggers.find(
+      (trigger) => trigger.name === name
+    );
+
+    if (name === 'outside room') {
+      const boundary = new BoundingBox(
+        new Position(0, 0),
+        res.globals.CURRENT_ZONE.size
+      );
+      if (!unit.position.isInside(boundary)) {
+        const misc = { res };
+        trigger?.call(unit, misc);
+      }
+    }
+  }
 }
 
 async function play(res) {
   const zone = res.zones[0];
+  res.globals.CURRENT_ZONE = zone;
   await loadZone(zone, res);
 
   const INPUT_STATE = {
     KEYBOARD: {},
     MOUSE: {
-      [Triggers.Mouse.LEFT]: {
+      [Triggers.Mouse.BUTTONS.LEFT]: {
         position: new Position(),
         clicked: false,
         held: false,
@@ -129,6 +150,9 @@ async function play(res) {
         }
       }
     }
+
+    // Outside Room
+    handleTrigger('outside room', res);
 
     for (const unit of res.units) {
       if (res.globals.SLEEPING) break;
@@ -195,7 +219,6 @@ async function play(res) {
       if (res.globals.SLEEPING) break;
     }
 
-
     // reset input states
     Object.values(INPUT_STATE.MOUSE).forEach(
       (state) => (state.clicked = false)
@@ -233,7 +256,13 @@ async function play(res) {
   res.globals.RESTART = async function () {
     await res.globals.STOP_LOOP();
     res.globals.SCORE = 0;
-    await loadZone(zone, res);
+    await loadZone(res.zones[0], res);
+    res.globals.RESUME_LOOP(res.zones[0].fps);
+  };
+
+  res.globals.RESTART_CURRENT_ZONE = async function () {
+    await res.globals.STOP_LOOP();
+    await loadZone(res.globals.CURRENT_ZONE, res);
     res.globals.RESUME_LOOP(zone.fps);
   };
 
@@ -250,7 +279,7 @@ async function play(res) {
 
   res.globals.GAME_LOOP_RUNNING = true;
 
-  document.$('#zone').animate(tick, { FPS: zone.fps });
+  document.$('#zone').animate(tick, { FPS: res.globals.CURRENT_ZONE.fps });
 
   document.$('#zone').paintContent = function (gfx) {
     //... draw game state here ...
@@ -280,10 +309,13 @@ async function loadZone(zone, res) {
       ? 'repeat-y'
       : 'no-repeat';
 
+  const seconds = eval('100vh.valueOf()') / layer.speedY / 30;
+  style.animation = `scrollY ${seconds}s linear infinite`;
+
   res.units = zone.units.map((fn) => fn());
 
-  console.log('Hydrating units ...');
+  //console.log('Hydrating units ...');
   const date = Date.now();
-  await Promise.all(res.units.map((unit) => unit.hydrate(res.entities)));
-  console.log(`Hydration complete! (${(Date.now() - date) / 1000} seconds)`);
+  await Promise.all(res.units.map((unit) => unit.hydrate(res)));
+  //console.log(`Hydration complete! (${(Date.now() - date) / 1000} seconds)`);
 }
