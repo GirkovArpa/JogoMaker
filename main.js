@@ -271,6 +271,7 @@ async function play(res) {
     res.globals.SLEEPING = true;
     const date = Date.now();
     while (true) {
+      await new Promise(setTimeout);
       if (Date.now() - date >= milliseconds) {
         res.globals.SLEEPING = false;
         return;
