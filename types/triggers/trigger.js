@@ -6,8 +6,8 @@ export class Trigger {
     this.actions = actions;
   }
 
-  call(unit, misc, actions = this.actions) {
-    Trigger.call(unit, misc, actions);
+  async call(unit, misc, actions = this.actions) {
+    return await Trigger.call(unit, misc, actions);
   }
 
   static async call(unit, misc, list = this.actions) {
