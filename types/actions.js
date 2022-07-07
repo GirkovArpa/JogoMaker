@@ -236,7 +236,7 @@ class CreateUnit extends Action {
 
     const u = new Unit(this.entity, this.position);
     res.units.push(u);
-    await u.hydrate(res.entities);
+    await u.hydrate(res);
   }
 }
 

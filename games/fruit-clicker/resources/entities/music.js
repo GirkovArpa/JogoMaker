@@ -2,7 +2,7 @@ import { Entity, Trigger, TriggerList, Action, ActionList } from './module.js';
 
 export default new Entity(
   'music',
-  'music',
+  null,
   true,
   false,
   new TriggerList(

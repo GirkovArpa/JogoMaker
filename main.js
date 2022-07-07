@@ -19,7 +19,7 @@ import {
 import Triggers from './types/triggers/module.js';
 import { Position, Size, Velocity, BoundingBox } from './types/math.js';
 
-main('street-racing');
+main('fruit-clicker');
 
 async function main(game) {
   if (!Window.this.scapp.argv.includes('--debug')) {
@@ -211,6 +211,7 @@ async function play(res) {
 
       // update position
       // decrement alarms
+      // advance subimage
       unit.tick();
     }
 

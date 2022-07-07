@@ -24,7 +24,7 @@ export class Resource {
         `games/${Resource.GAME}/resources/sprites/${this.filename}`
       );
     } else if (this instanceof Entity) {
-      this.sprite = res.sprites.find(({ name }) => name === this.sprite);
+      this.sprite = res.sprites.find(({ name }) => name === this.sprite) || null;
     } else if (this instanceof Unit) {
       this.entity = res.entities.find(({ name }) => name === this.entity);
       this.sprite = this.entity.sprite || null;
@@ -361,7 +361,9 @@ export class Unit extends Resource {
   }
 
   tick() {
-    this.subimage += this.imageSpeed;
+    if (this.entity.sprite !== null) {
+      this.subimage += this.imageSpeed;
+    }
     this.#alarms.forEach((alarm) => alarm.tick());
     this.step();
   }
